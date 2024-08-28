@@ -2,7 +2,6 @@ from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.exc import IntegrityError
 from dotenv import load_dotenv
 import os
 
@@ -31,11 +30,6 @@ class User(db.Model):
     
 with app.app_context():    
     db.create_all()
-
-def generator(list):
-    for data in list:
-        yield data
-
 
 @app.route('/api/users/batch', methods=['POST'])
 def insert_data():
