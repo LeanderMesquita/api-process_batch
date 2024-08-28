@@ -1,17 +1,21 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import IntegrityError
 from dotenv import load_dotenv
 import os
 
 
 load_dotenv()
-
+db_url = os.getenv('DB_URL')
 app = Flask(__name__)
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:leanderlopes87372661@localhost:5432/flask_api_db'
+app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+engine = create_engine(db_url)
+Session = sessionmaker(bind=engine)
 db = SQLAlchemy(app)
 
 class User(db.Model):
@@ -34,52 +38,28 @@ def generator(list):
 
 
 @app.route('/api/users/batch', methods=['POST'])
-def process_batch():
-    data = request.json
+def insert_data():
+    data = request.json.get('payload', [])
     
-    if not data or 'payload' not in data:
-        return jsonify({"error": "Payload inválido ou não encontrado"}), 400
-
-    payload = data['payload']
-    users_created = []
-    errors = []
+    if not data:
+        
+        return jsonify({'error': 'No data in payload'}), 400
     
-    
-    
-
-    for user_data in generator(payload):
-        try:
-            user_info = user_data.get("body")
-            
-            if not user_info:
-                errors.append({"error": "Dados do usuário faltando", "data": user_data})
-                continue
-
-            new_user = User(
-                name=user_info.get('name'),
-                last_name=user_info.get('lastName'),
-                email=user_info.get('email'),
-                password=user_info.get('password'),
-                role=user_info.get('role'),
-                sector=user_info.get('sector'),
-                state=user_info.get('state')
-            )
-
-            db.session.add(new_user)
-            db.session.commit()
-            users_created.append(new_user.id)
-
-        except IntegrityError as e:
-            db.session.rollback()
-            errors.append({"error": str(e.orig), "data": user_info})
-        except Exception as e:
-            db.session.rollback()
-            errors.append({"error": str(e), "data": user_info})
-
-    return jsonify({
-        "created_users": users_created,
-        "errors": errors
-    }), 200
+    session = Session()
+    try:
+        users = [User(**item['body']) for item in data]
+        
+        session.bulk_save_objects(users)
+        session.commit()
+        
+       
+        return jsonify({'message': 'Data successfully inserted'}), 200
+    except Exception as e:
+        session.rollback()
+       
+        return jsonify({'error': 'Failed to insert data', 'details': str(e)}), 500
+    finally:
+        session.close()
 
 if __name__ == '__main__':
     app.run(debug=True)
