@@ -35,23 +35,22 @@ with app.app_context():
 def insert_data():
     data = request.json.get('payload', [])
     
-    if not data:
+    if not data: return jsonify({'error': 'No data in payload'}), 400
         
-        return jsonify({'error': 'No data in payload'}), 400
-    
     session = Session()
     try:
         users = [User(**item['body']) for item in data]
         
         session.bulk_save_objects(users)
         session.commit()
-        
        
         return jsonify({'message': 'Data successfully inserted'}), 200
+    
     except Exception as e:
+        
         session.rollback()
-       
         return jsonify({'error': 'Failed to insert data', 'details': str(e)}), 500
+    
     finally:
         session.close()
 
